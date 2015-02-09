@@ -85,11 +85,13 @@ bool foreground2                  = false;
 bool nomultipart                  = false;
 bool pathrequeststyle             = false;
 bool is_specified_endpoint        = false;
+bool use_proxy                    = false;
 std::string program_name;
 std::string service_path          = "/";
 std::string host                  = "http://s3.amazonaws.com";
 std::string bucket                = "";
 std::string endpoint              = "us-east-1";
+std::string proxy                 = "";
 
 //-------------------------------------------------------------------
 // Static valiables
@@ -2666,11 +2668,17 @@ static void* s3fs_init(struct fuse_conn_info* conn)
 {
   FPRN("init");
   LOWSYSLOGPRINT(LOG_ERR, "init v%s (%s)", VERSION, s3fs_crypt_lib_name());
-
+  
   // ssl init
   if(!s3fs_init_global_ssl()){
     fprintf(stderr, "%s: could not initialize for ssl libraries.\n", program_name.c_str());
     exit(EXIT_FAILURE);
+  }
+  
+  //enable proxy
+  if(use_proxy){
+    setenv("http_proxy", proxy.c_str(), 1);
+    setenv("https_proxy", proxy.c_str(), 1);
   }
 
   // init curl
@@ -3861,6 +3869,11 @@ static int my_fuse_opt_proc(void* data, const char* arg, int key, struct fuse_ar
     }
     if(0 == strcmp(arg, "use_path_request_style")){
       pathrequeststyle = true;
+      return 0;
+    }
+    if(0 == STR2NCMP(arg, "proxy=")){
+      proxy              = strchr(arg, '=') + sizeof(char);
+      use_proxy = true;
       return 0;
     }
 
