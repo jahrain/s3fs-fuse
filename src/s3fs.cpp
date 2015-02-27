@@ -116,6 +116,7 @@ static bool is_s3fs_uid           = false;// default does not set.
 static bool is_s3fs_gid           = false;// default does not set.
 static bool is_s3fs_umask         = false;// default does not set.
 static bool is_remove_cache       = false;
+static bool create_bucket         = false;
 
 //-------------------------------------------------------------------
 // Static functions : prototype
@@ -782,6 +783,16 @@ static int s3fs_readlink(const char* path, char* buf, size_t size)
   S3FS_MALLOCTRIM(0);
 
   return 0;
+}
+
+static int do_create_bucket(void)
+{
+  FPRNNN("/");
+
+  headers_t meta;
+
+  S3fsCurl s3fscurl(true);
+  return s3fscurl.PutRequest("/", meta, -1);    // fd=-1 means for creating zero byte object.
 }
 
 // common function for creation of a plain object
@@ -2690,6 +2701,10 @@ static void* s3fs_init(struct fuse_conn_info* conn)
     exit(EXIT_FAILURE);
   }
 
+  if (create_bucket){
+    do_create_bucket();
+  }
+
   // Check Bucket
   // If the network is up, check for valid credentials and if the bucket
   // exists. skip check if mounting a public bucket
@@ -3076,7 +3091,7 @@ static int s3fs_check_service(void)
       // retry to use sigv2
       LOWSYSLOGPRINT(LOG_ERR, "Could not connect, so retry to connect by signature version 2.");
       FPRN("Could not connect, so retry to connect by signature version 2.");
-      S3fsCurl::SetSignatureV4();
+      S3fsCurl::SetSignatureV4(false);
 
       // retry to check
       s3fscurl.DestroyCurlHandle();
@@ -3868,6 +3883,10 @@ static int my_fuse_opt_proc(void* data, const char* arg, int key, struct fuse_ar
     }
     if(0 == strcmp(arg, "sigv2")){
       S3fsCurl::SetSignatureV4(false);
+      return 0;
+    }
+    if(0 == strcmp(arg, "createbucket")){
+      create_bucket = true;
       return 0;
     }
     if(0 == STR2NCMP(arg, "endpoint=")){
